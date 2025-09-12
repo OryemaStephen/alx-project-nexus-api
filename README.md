@@ -105,6 +105,7 @@ erDiagram
         int id PK
         datetime created_at
     }
+```
 
 ### Workflow
 ```mermaid
@@ -117,9 +118,10 @@ flowchart TD
     E --> C
     C --> F[GraphQL Feed Query]
     F --> G[Return Personalized Feed]
+```
 
 💻 Example GraphQL Queries
-Create a User
+# Create a User
 mutation {
   createUser(username: "alice", email: "alice@mail.com", password: "12345") {
     user {
@@ -128,7 +130,7 @@ mutation {
     }
   }
 }
-Fetch Personalized Feed
+# Fetch Personalized Feed
 {
   feed(userId: 1) {
     id
@@ -140,65 +142,52 @@ Fetch Personalized Feed
   }
 }
 
-🔑 Challenges & Solutions
-
-Challenge: Optimizing feeds for large numbers of users.
+### 🔑 Challenges & Solutions
+* Challenge: Optimizing feeds for large numbers of users.
 Solution: Used query optimization + Redis caching.
 
-Challenge: Handling background notifications.
+* Challenge: Handling background notifications.
 Solution: Integrated Celery with RabbitMQ for async tasks.
 
-Challenge: Ensuring authorization for mutations.
+* Challenge: Ensuring authorization for mutations.
 Solution: Implemented user ownership checks in GraphQL resolvers.
 
-🏆 Best Practices & Takeaways
+### 🏆 Best Practices & Takeaways
 
-Write modular and clean code (apps, serializers, schema separation).
+- Write modular and clean code (apps, serializers, schema separation).
+- Always include unit tests to catch regressions early.
+- Use version control with clear commit messages (feat:, fix:, docs:).
+- Prioritize scalability: caching, async tasks, optimized queries.
+- Collaboration between frontend and backend learners ensures smooth integration.
 
-Always include unit tests to catch regressions early.
+### 🤝 Collaboration
 
-Use version control with clear commit messages (feat:, fix:, docs:).
+- Collaborated with ProDev Frontend learners who consumed the APIs.
+- Shared ideas and solutions in the #ProDevProjectNexus Discord channel and other relevant channels of communication.
+- Organized joint study sessions for debugging and API testing.
 
-Prioritize scalability: caching, async tasks, optimized queries.
+### 📅 Git Commit Workflow
 
-Collaboration between frontend and backend learners ensures smooth integration.
+- feat: → new features (e.g., posts CRUD, follow system).
+- fix: → bug fixes.
+- perf: → performance improvements (query optimization).
+- docs: → README and documentation updates.
 
-🤝 Collaboration
+### 📊 Evaluation Criteria
 
-Collaborated with ProDev Frontend learners who consumed the APIs.
+- Functionality – APIs for posts, users, and interactions.
 
-Shared ideas and solutions in the #ProDevProjectNexus Discord channel and other relevant channels of communication.
+- Code Quality – clean, modular, well-structured code.
 
-Organized joint study sessions for debugging and API testing.
+- User Experience – intuitive GraphQL Playground.
 
-📅 Git Commit Workflow
-
-feat: → new features (e.g., posts CRUD, follow system).
-
-fix: → bug fixes.
-
-perf: → performance improvements (query optimization).
-
-docs: → README and documentation updates.
-
-📊 Evaluation Criteria
-
-Functionality – APIs for posts, users, and interactions.
-
-Code Quality – clean, modular, well-structured code.
-
-User Experience – intuitive GraphQL Playground.
-
-Version Control – frequent commits with meaningful messages.
+- Version Control – frequent commits with meaningful messages.
 
 
-👩‍💻 Author
+### 👩‍💻 Author
 
 Ciiru Ngunjiri
 ProDev Backend Engineer
-
-GitHub: CiiruNgunjiri (https://github.com/CiiruNgunjiri)
-
-Linkedin: Linda Ngunjiri (www.linkedin.com/in/linda-ngunjiri35)
-
-Email: ciiru.ngunjiri@gmail.com
+- GitHub: CiiruNgunjiri (https://github.com/CiiruNgunjiri)
+- Linkedin: Linda Ngunjiri (www.linkedin.com/in/linda-ngunjiri35)
+- Email: ciiru.ngunjiri@gmail.com
