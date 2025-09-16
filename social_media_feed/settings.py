@@ -87,7 +87,7 @@ WSGI_APPLICATION = 'social_media_feed.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-USE_DOCKER = os.getenv('USE_DOCKER', '0') == '1'
+USE_DOCKER = os.getenv('USE_DOCKER', 'False') == 'True'
 
 DATABASES = {
     "default": {

@@ -1,35 +1,27 @@
-# dockerfile
-FROM python:3.11-slim
+# Use official Python image
+FROM python:3.13-slim
 
-# Prevents Python from writing .pyc files & buffering stdout
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Set work directory
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies (needed for psycopg2, Pillow, etc.)
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       build-essential \
-       libpq-dev \
-       libjpeg-dev \
-       zlib1g-dev \
-       libmagic-dev \
-       curl \
-       netcat-traditional \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-COPY requirements.txt /app/
+# Copy requirements first for caching
+COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # Copy project
-COPY . /app/
+COPY . .
 
-# Expose port
+# Expose Django port
 EXPOSE 8000
 
-# Start server (can be overridden in docker-compose)
+# Default command
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
