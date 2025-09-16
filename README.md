@@ -42,9 +42,58 @@ As a case study, I showcase my **Social Media Feed Backend** project — a scala
 - Improving response times by avoiding repeated expensive queries.  
 
 ---
+### 🚀 Getting Started
 
-## ⚡ Case Study: Social Media Feed Backend
-### Real-World Application
+1. Clone the Repository
+- git clone https://github.com/CiiruNgunjiri/alx-project-nexus.git
+- cd alx-project-nexus
+
+2. Create a Virtual Environment
+- python -m venv .venv
+- source .venv/bin/activate  # Linux/macOS
+- .venv\Scripts\activate     # Windows
+
+3. Install Dependencies
+- pip install -r requirements.txt
+
+4. Setup Environment Variables
+- Create a .env file in the project root:
+DJANGO_SECRET_KEY=your_secret_key
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+
+POSTGRES_DB=database-name
+POSTGRES_USER= username
+POSTGRES_PASSWORD= password
+POSTGRES_HOST_LOCAL=127.0.0.1
+POSTGRES_PORT_LOCAL=5432
+
+REDIS_URL=redis://localhost:6379/1
+CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
+CELERY_RESULT_BACKEND=redis://localhost:6379/2
+
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+CSRF_TRUSTED_ORIGINS=http://localhost:3000
+MEDIA_URL=/media/
+MEDIA_ROOT=/path/to/media
+
+# ⚠️ Update the values according to your local setup or Docker configuration.
+
+5. Apply Migrations
+- python manage.py makemigrations
+- python manage.py migrate
+
+6. Create a Superuser (Optional)
+- python manage.py createsuperuser
+
+7. Run the Development Server
+- python manage.py runserver
+
+- Open your browser: http://127.0.0.1:8000/
+
+
+### ⚡ Case Study: Social Media Feed Backend
+## Real-World Application
 A backend system for managing posts, user interactions, and personalized feeds.  
 Key learnings included:  
 - Using **GraphQL** for flexible data fetching.  
