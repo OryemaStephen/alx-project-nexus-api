@@ -63,7 +63,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'Social_media_feed.urls'
+ROOT_URLCONF = 'social_media_feed.urls'
 
 TEMPLATES = [
     {
@@ -81,7 +81,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'Social_media_feed.wsgi.application'
+WSGI_APPLICATION = 'social_media_feed.wsgi.application'
 
 
 # Database
