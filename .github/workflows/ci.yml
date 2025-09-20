@@ -1,0 +1,108 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, 'feature/*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+
+      - name: Build Docker image with cache
+        run: |
+          docker buildx create --use || true
+          docker buildx build \
+          --cache-from=type=local,src=/tmp/.buildx-cache \
+          --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+          -t backend-test .
+
+      - name: Move Docker cache
+        run: mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+
+      - name: Create Docker network
+        run: docker network create ci-network || true
+
+      - name: Start service containers (Postgres, Redis, RabbitMQ)
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: |
+          docker run -d --name ci-postgres --network ci-network \
+            -e POSTGRES_USER=$POSTGRES_USER \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_DB=$POSTGRES_DB \
+            postgres:15
+          docker run -d --name ci-redis --network ci-network redis:7
+          docker run -d --name ci-rabbitmq --network ci-network rabbitmq:3-management
+
+      - name: Wait for Postgres to be ready
+        run: |
+          until docker exec ci-postgres pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+      - name: Create .env file
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: |
+          echo "POSTGRES_USER=$POSTGRES_USER" >> .env
+          echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> .env
+          echo "POSTGRES_DB=$POSTGRES_DB" >> .env
+          echo "POSTGRES_HOST_DOCKER=ci-postgres" >> .env
+          echo "POSTGRES_PORT_DOCKER=5432" >> .env
+          echo "CELERY_BROKER_URL=amqp://guest:guest@ci-rabbitmq:5672//" >> .env
+          echo "CELERY_RESULT_BACKEND=redis://ci-redis:6379/2" >> .env
+
+      - name: Run migrations
+        run: docker run --rm --network ci-network --env-file .env backend-test python manage.py migrate
+
+      - name: Start Celery worker
+        run: docker run -d --name ci-celery --network ci-network --env-file .env backend-test \
+          celery -A social_media_feed worker --loglevel=INFO
+
+      - name: Wait for Celery worker to start
+        run: |
+          retries=0
+          max_retries=10
+          until docker logs ci-celery 2>&1 | grep -q "ready"; do
+            if [ $retries -ge $max_retries ]; then
+              echo "Celery worker failed to start."
+              docker logs ci-celery
+              exit 1
+            fi
+            retries=$((retries+1))
+            sleep 2
+          done
+
+      - name: Run Django and Celery tests in parallel
+        run: |
+          docker run --rm --network ci-network --env-file .env backend-test python manage.py test_celery_task &
+          CELERY_PID=$!
+          docker run --rm --network ci-network --env-file .env backend-test python manage.py test
+          wait $CELERY_PID
+
+      - name: Cleanup containers and network
+        run: |
+          docker rm -f ci-postgres ci-redis ci-rabbitmq ci-celery || true
+          docker network rm ci-network || true

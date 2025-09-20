@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Django
+db.sqlite3
+*.log
+media/
+
+# Virtualenv
+venv/
+.env
+
+# VSCode
+.vscode/
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
