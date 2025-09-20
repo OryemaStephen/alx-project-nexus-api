@@ -43,6 +43,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Build backend-test Docker image
+        run: docker build -t backend-test . 
+
       - name: Cache Docker layers
         uses: actions/cache@v3
         with:
