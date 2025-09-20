@@ -1,38 +1,27 @@
-# Use official Python 3.11 slim image
-FROM python:3.11-slim
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# Use official Python image
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && \
-    apt-get install -y procps build-essential libpq-dev curl git && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (leverage caching)
+# Copy requirements first for caching
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir flake8
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy project
 COPY . .
-
-# Copy and set entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # Expose Django port
 EXPOSE 8000
 
-# Entrypoint handles migrations & static collection
-ENTRYPOINT ["/entrypoint.sh"]
-
-# Default command (Django dev server, replace with gunicorn in prod)
+# Default command
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
