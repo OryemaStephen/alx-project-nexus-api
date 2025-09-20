@@ -1,0 +1,98 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, 'feature/*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: pass01
+          POSTGRES_DB: social_media
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexus -d social_media"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build backend-test Docker image
+        run: docker build -t backend-test . 
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+
+      - name: Build Docker image
+        run: |
+          docker buildx create --use || true
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            -t backend-test .
+
+      - name: Move Docker cache
+        run: mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+
+      - name: Run migrations
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=localhost \
+            backend-test \
+            python manage.py migrate
+
+      - name: Run Django tests
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=localhost \
+            backend-test \
+            python manage.py test
+
+      - name: Run Celery test task
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=localhost \
+            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
+            -e CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
+            backend-test \
+            bash -c "celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"

@@ -1,3 +1,5 @@
+![Backend CI](https://github.com/CiiruNgunjiri/alx-project-nexus/actions/workflows/ci.yml/badge.svg?branch=feature/ci-setup)
+
 # 📖 Project Nexus - ProDev Backend Engineering
 
 ## 📌 Overview
