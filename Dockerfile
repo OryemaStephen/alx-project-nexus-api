@@ -20,6 +20,13 @@ RUN pip install --upgrade pip \
 # Copy project
 COPY . .
 
+# Copy wait-for-it script
+COPY wait-for-it.sh /wait-for-it.sh
+
+# Make it executable
+RUN chmod +x /wait-for-it.sh
+
+
 # Expose Django port
 EXPOSE 8000
 

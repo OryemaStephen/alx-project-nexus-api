@@ -23,8 +23,14 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from users.views import LoginView, CustomLoginView
+from django.http import JsonResponse
+
+def home(request):
+    return JsonResponse({"message": "Welcome to Nexus API 🚀"})
 
 urlpatterns = [
+     path("", home, name="home"),   # 👈 root endpoint
     path('admin/', admin.site.urls),
     path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))),
     # Auth routes
@@ -34,4 +40,7 @@ urlpatterns = [
     # App routes
     path("api/", include("users.urls")), 
     path("users/", include("users.urls")), 
+
+    path("api/login/", LoginView.as_view(), name="login"),
+    path("api/token/", CustomLoginView.as_view(), name="token_obtain_pair"),
 ]

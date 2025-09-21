@@ -13,6 +13,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 import environ
+from dotenv import load_dotenv
+
+def in_docker() -> bool:
+    """
+    Detect if Django is running inside a Docker container.
+    Common approach: check for /.dockerenv or environment variable.
+    """
+    return os.path.exists("/.dockerenv") or os.getenv("USE_DOCKER") == "True"
+
+load_dotenv()  # loads .env file
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -97,16 +107,11 @@ DATABASES = {
         "NAME": os.getenv("POSTGRES_DB"),
         "USER": os.getenv("POSTGRES_USER"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv(
-            "POSTGRES_HOST_DOCKER" if USE_DOCKER else "POSTGRES_HOST_LOCAL",
-            "127.0.0.1"
-        ),
-        "PORT": os.getenv(
-            "POSTGRES_PORT_DOCKER" if USE_DOCKER else "POSTGRES_PORT_LOCAL", 
-            5432
-        ),
+        "HOST": "db" if in_docker() else os.getenv("POSTGRES_HOST_LOCAL", "127.0.0.1"),
+        "PORT": os.getenv("POSTGRES_PORT_DOCKER", 5432) if in_docker() else os.getenv("POSTGRES_PORT_LOCAL", 5432),
     }
 }
+
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -177,8 +182,9 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 #Celery
-CELERY_BROKER_URL = 'redis://alx-project-nexus-redis-1:6379/0'
-CELERY_RESULT_BACKEND = 'redis://alx-project-nexus-redis-1:6379/0'
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
+
 
 # CORS / CSRF
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"])
