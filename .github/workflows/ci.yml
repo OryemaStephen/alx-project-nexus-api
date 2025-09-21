@@ -53,6 +53,9 @@ jobs:
       - name: Build Docker image
         run: docker build -t backend-test .
       
+      - name: Install redis-cli
+        run: sudo apt-get update && sudo apt-get install -y redis-tools
+
       - name: Wait for Postgres, Redis, and RabbitMQ to be ready
         run: |
           # Wait for Postgres
