@@ -40,59 +40,47 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build backend-test Docker image
-        run: docker build -t backend-test . 
-
-      - name: Cache Docker layers
-        uses: actions/cache@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-docker-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Build Docker image
-        run: |
-          docker buildx create --use || true
-          docker buildx build \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            -t backend-test .
-
-      - name: Move Docker cache
-        run: mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+        run: docker build -t backend-test .
 
       - name: Run migrations
         run: |
-          docker run --rm --network host \
+          docker run --rm \
             -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
+            -e DATABASE_HOST=postgres \
             backend-test \
             python manage.py migrate
 
       - name: Run Django tests
         run: |
-          docker run --rm --network host \
+          docker run --rm \
             -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
+            -e DATABASE_HOST=postgres \
             backend-test \
             python manage.py test
 
       - name: Run Celery test task
         run: |
-          docker run --rm --network host \
+          docker run --rm \
             -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
-            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
-            -e CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
+            -e DATABASE_HOST=postgres \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
+            -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
             backend-test \
             bash -c "celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"
