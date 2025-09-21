@@ -52,7 +52,7 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t backend-test .
-
+      
       - name: Wait for Postgres, Redis, and RabbitMQ to be ready
         run: |
           # Wait for Postgres
@@ -69,6 +69,9 @@ jobs:
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
             -e DATABASE_HOST=postgres \
+            -e DATABASE_HOST=postgres \ 
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
             backend-test \
             python manage.py migrate
 
