@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     'graphene_django',
     'corsheaders',
     'rest_framework',
-    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -104,8 +103,8 @@ USE_DOCKER = os.getenv('USE_DOCKER', 'False') == 'True'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
+        "NAME": os.getenv("POSTGRES_DB", "social_media"),
+        "USER": os.getenv("POSTGRES_USER", "nexus"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
         "HOST": "db" if in_docker() else os.getenv("POSTGRES_HOST_LOCAL", "127.0.0.1"),
         "PORT": os.getenv("POSTGRES_PORT_DOCKER", 5432) if in_docker() else os.getenv("POSTGRES_PORT_LOCAL", 5432),
@@ -190,8 +189,3 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:3000"])
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
-}
