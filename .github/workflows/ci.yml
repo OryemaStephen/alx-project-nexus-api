@@ -63,7 +63,7 @@ jobs:
 
       - name: Run migrations, tests, and Celery tasks
         run: |
-          docker compose run --rm web \
+          docker compose run --rm \
             -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
