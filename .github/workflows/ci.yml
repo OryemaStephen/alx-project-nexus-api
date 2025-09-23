@@ -43,7 +43,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
@@ -53,45 +53,39 @@ jobs:
       - name: Build Docker image
         run: docker build -t backend-test .
 
-      - name: Install redis-cli
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+      - name: Install redis-cli and curl
+        run: sudo apt-get update && sudo apt-get install -y redis-tools curl
 
-      - name: Wait for Postgres, Redis, and RabbitMQ to be ready
+      - name: Download wait-for-it.sh
         run: |
-          until pg_isready -h localhost -p 5432 -U ${{ secrets.POSTGRES_USER }}; do echo "Waiting for Postgres..."; sleep 2; done
-          until redis-cli -h localhost ping | grep PONG; do echo "Waiting for Redis..."; sleep 2; done
-          until nc -z localhost 5672; do echo "Waiting for RabbitMQ..."; sleep 2; done
+          curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
+          chmod +x wait-for-it.sh
 
-      - name: Run migrations
+      - name: Wait for services
         run: |
-          docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
-            -e REDIS_URL=redis://localhost:6379/0 \
-            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
-            backend-test \
-            python manage.py migrate
+          ./wait-for-it.sh db:5432 --timeout=30 --strict -- echo "Postgres is up"
+          ./wait-for-it.sh redis:6379 --timeout=30 --strict -- echo "Redis is up"
+          ./wait-for-it.sh rabbitmq:5672 --timeout=30 --strict -- echo "RabbitMQ is up"
 
-      - name: Run Django tests
+      - name: Run all tests in one container
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           docker run --rm \
             -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
             -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
+            -e DATABASE_HOST=db \
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
+            -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
             backend-test \
-            python manage.py test
-
-      - name: Run Celery test task
-        run: |
-          docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=localhost \
-            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
-            -e CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
-            backend-test \
-            bash -c "python manage.py migrate && celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"
+            bash -c "\
+              echo 'Running migrations...' && \
+              python manage.py migrate && \
+              echo 'Running Django tests...' && \
+              python manage.py test && \
+              echo 'Running Celery task tests...' && \
+              celery -A social_media_feed worker --loglevel=INFO --detach && \
+              python manage.py test_celery_task \
+            "
