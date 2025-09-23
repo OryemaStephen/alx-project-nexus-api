@@ -10,35 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    services:
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: pass01
-          POSTGRES_DB: social_media
-        options: >-
-          --health-cmd "pg_isready -U nexus -d social_media"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping | grep PONG"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      rabbitmq:
-        image: rabbitmq:3-management
-        options: >-
-          --health-cmd "rabbitmqctl status"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -53,30 +24,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build Docker image
-        run: docker build -t backend-test .
+      - name: Build Docker containers
+        run: docker-compose build
 
-      - name: Run migrations and tests
+      - name: Start services in background
+        run: docker-compose up -d db redis rabbitmq
+
+      - name: Wait for services to be ready
         run: |
-          docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=db \
-            -e REDIS_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
-            -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
-            backend-test \
-            bash -c "\
-              echo 'Waiting for Postgres...' && \
-              until pg_isready -h db -U \$POSTGRES_USER; do sleep 2; done && \
-              echo 'Waiting for Redis...' && \
-              until redis-cli -h redis ping | grep PONG; do sleep 2; done && \
-              echo 'Waiting for RabbitMQ...' && \
-              until rabbitmqctl -q status; do sleep 2; done && \
-              echo 'Running migrations...' && python manage.py migrate && \
-              echo 'Running Django tests...' && python manage.py test && \
-              echo 'Running Celery tests...' && \
-              celery -A social_media_feed worker --loglevel=INFO --detach && \
-              python manage.py test_celery_task \
-            "
+          ./wait-for-it.sh db:5432 --timeout=60 --strict -- echo "Postgres ready"
+          ./wait-for-it.sh redis:6379 --timeout=60 --strict -- echo "Redis ready"
+          ./wait-for-it.sh rabbitmq:5672 --timeout=60 --strict -- echo "RabbitMQ ready"
+        shell: bash
+
+      - name: Run migrations and Django tests inside web container
+        run: |
+          docker-compose run --rm web bash -c "\
+            echo 'Running migrations...' && \
+            python manage.py migrate && \
+            echo 'Running Django tests...' && \
+            python manage.py test && \
+            echo 'Starting temporary Celery worker for tests...' && \
+            celery -A social_media_feed worker --loglevel=INFO --detach && \
+            python manage.py test_celery_task && \
+            echo 'Stopping Celery worker...' && \
+            pkill -f 'celery' \
+          "
+
+      - name: Shut down containers
+        run: docker-compose down
