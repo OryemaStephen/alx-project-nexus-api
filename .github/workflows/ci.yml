@@ -14,9 +14,9 @@ jobs:
       db:
         image: postgres:15
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_USER: nexus
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_DB: social_media
         ports:
           - 5432:5432
         options: >-
@@ -65,10 +65,9 @@ jobs:
       - name: Run migrations
         run: |
           docker run --rm \
-            --network host \
-            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e POSTGRES_DB=social_media \
             -e DATABASE_HOST=localhost \
             -e REDIS_URL=redis://localhost:6379/0 \
             -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
@@ -78,10 +77,9 @@ jobs:
       - name: Run Django tests
         run: |
           docker run --rm \
-            --network host \
-            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e POSTGRES_DB=social_media \
             -e DATABASE_HOST=localhost \
             backend-test \
             python manage.py test
@@ -89,10 +87,9 @@ jobs:
       - name: Run Celery test task
         run: |
           docker run --rm \
-            --network host \
-            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e POSTGRES_DB=social_media \
             -e DATABASE_HOST=localhost \
             -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
             -e CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
