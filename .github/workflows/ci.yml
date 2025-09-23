@@ -15,7 +15,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: testpassword   # dummy password for CI
           POSTGRES_DB: social_media
         ports:
           - 5432:5432
@@ -69,7 +69,7 @@ jobs:
 
       - name: Run all tests in one container
         env:
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: testpassword   # match service env
         run: |
           docker run --rm \
             -e POSTGRES_USER=nexus \
