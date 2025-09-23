@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: social-media-feed
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromDatabase: secret_key
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "social-media-feed.onrender.com"
+      - key: POSTGRES_DB
+        fromDatabase: db_name
+      - key: POSTGRES_USER
+        fromDatabase: db_user
+      - key: POSTGRES_PASSWORD
+        fromDatabase: db_password
+      - key: POSTGRES_HOST_LOCAL
+        fromDatabase: db_host
+      - key: POSTGRES_PORT_LOCAL
+        fromDatabase: db_port
+      - key: CELERY_BROKER_URL
+        value: "redis://redis:6379/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://redis:6379/0"
+
+databases:
+  - name: social-media-db
+    type: postgresql
+    plan: free
+    region: oregon
+
+workers:
+  - type: worker
+    name: celery-worker
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    startCommand: >
+      /wait-for-it.sh social-media-db:5432 -- celery -A social_media_feed worker --loglevel=info
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromDatabase: secret_key
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: POSTGRES_DB
+        fromDatabase: db_name
+      - key: POSTGRES_USER
+        fromDatabase: db_user
+      - key: POSTGRES_PASSWORD
+        fromDatabase: db_password
+      - key: POSTGRES_HOST_LOCAL
+        fromDatabase: db_host
+      - key: POSTGRES_PORT_LOCAL
+        fromDatabase: db_port
+      - key: CELERY_BROKER_URL
+        value: "redis://redis:6379/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://redis:6379/0"

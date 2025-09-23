@@ -8,12 +8,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for caching
-COPY requirements.txt .
-
 # Install Python dependencies
+COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
@@ -22,13 +21,14 @@ COPY . .
 
 # Copy wait-for-it script
 COPY wait-for-it.sh /wait-for-it.sh
-
-# Make it executable
 RUN chmod +x /wait-for-it.sh
 
+# Collect static files
+RUN python manage.py collectstatic --noinput
 
 # Expose Django port
 EXPOSE 8000
 
-# Default command
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Start Django with Gunicorn (production-ready)
+CMD sh -c "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn social_media_feed.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+

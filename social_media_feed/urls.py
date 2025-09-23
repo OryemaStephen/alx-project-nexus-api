@@ -26,11 +26,15 @@ from rest_framework_simplejwt.views import (
 from users.views import LoginView, CustomLoginView
 from django.http import JsonResponse
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 def home(request):
-    return JsonResponse({"message": "Welcome to Nexus API 🚀"})
+    return JsonResponse({"message": "Welcome to Nexus API"})
 
 urlpatterns = [
-     path("", home, name="home"),   # 👈 root endpoint
+    path("healthz", health_check), # ON RENDER
+    path("", home, name="home"),   #  root endpoint
     path('admin/', admin.site.urls),
     path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))),
     # Auth routes
