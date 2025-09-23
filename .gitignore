@@ -21,3 +21,4 @@ venv/
 *.pid
 *.seed
 *.pid.lock
+/staticfiles/
