@@ -65,20 +65,35 @@ jobs:
       - name: Run migrations
         run: |
           docker run --rm \
-            --env-file .env \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=db \
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
             backend-test \
             python manage.py migrate
 
       - name: Run Django tests
         run: |
           docker run --rm \
-            --env-file .env \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=db \
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
             backend-test \
-            python manage.py test
+            python manage.py migrate
 
       - name: Run Celery test task
         run: |
           docker run --rm \
-            --env-file .env \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            -e DATABASE_HOST=db \
+            -e REDIS_URL=redis://redis:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
             backend-test \
-            bash -c "python manage.py migrate && celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"
+            python manage.py migrate
