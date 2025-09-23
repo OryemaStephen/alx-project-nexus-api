@@ -71,7 +71,7 @@ jobs:
             -e REDIS_URL=redis://redis:6379/0 \
             -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
             -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
-            bash -c "\
+            web bash -c "\
               echo 'Waiting for Postgres...' && ./wait-for-it.sh db:5432 --timeout=120 --strict && \
               echo 'Waiting for Redis...' && ./wait-for-it.sh redis:6379 --timeout=120 --strict && \
               echo 'Waiting for RabbitMQ...' && ./wait-for-it.sh rabbitmq:5672 --timeout=120 --strict && \
