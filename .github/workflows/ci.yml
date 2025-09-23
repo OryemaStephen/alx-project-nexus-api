@@ -15,7 +15,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: testpassword   # dummy password for CI
+          POSTGRES_PASSWORD: pass01   # dummy password for CI
           POSTGRES_DB: social_media
         ports:
           - 5432:5432
