@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
+      db:
         image: postgres:15
         env:
           POSTGRES_USER: nexus
@@ -53,48 +53,32 @@ jobs:
       - name: Build Docker image
         run: docker build -t backend-test .
       
-      - name: Install redis-cli
-        run: sudo apt-get update && sudo apt-get install -y redis-tools
+      - name: Install redis-cli + nc
+        run: sudo apt-get update && sudo apt-get install -y redis-tools netcat-openbsd
 
       - name: Wait for Postgres, Redis, and RabbitMQ to be ready
         run: |
-          # Wait for Postgres
           until pg_isready -h localhost -p 5432 -U nexus; do echo "Waiting for Postgres..."; sleep 2; done
-          # Wait for Redis
           until redis-cli -h localhost ping | grep PONG; do echo "Waiting for Redis..."; sleep 2; done
-          # Wait for RabbitMQ
           until nc -z localhost 5672; do echo "Waiting for RabbitMQ..."; sleep 2; done
 
       - name: Run migrations
         run: |
-         docker run --rm \
-          -e POSTGRES_USER=nexus \
-          -e POSTGRES_PASSWORD=pass01 \
-          -e POSTGRES_DB=social_media \
-          -e DATABASE_HOST=postgres \
-          -e REDIS_URL=redis://redis:6379/0 \
-          -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
-          backend-test \
-          python manage.py migrate
+          docker run --rm \
+            --env-file .env \
+            backend-test \
+            python manage.py migrate
 
       - name: Run Django tests
         run: |
           docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=postgres \
+            --env-file .env \
             backend-test \
             python manage.py test
 
       - name: Run Celery test task
         run: |
           docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=postgres \
-            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
-            -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
+            --env-file .env \
             backend-test \
             bash -c "python manage.py migrate && celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"
