@@ -14,9 +14,9 @@ jobs:
       db:
         image: postgres:15
         env:
-          POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: pass01
-          POSTGRES_DB: social_media
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         ports:
           - 5432:5432
         options: >-
@@ -52,48 +52,49 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t backend-test .
-      
-      - name: Install redis-cli + nc
-        run: sudo apt-get update && sudo apt-get install -y redis-tools netcat-openbsd
+
+      - name: Install redis-cli
+        run: sudo apt-get update && sudo apt-get install -y redis-tools
 
       - name: Wait for Postgres, Redis, and RabbitMQ to be ready
         run: |
-          until pg_isready -h localhost -p 5432 -U nexus; do echo "Waiting for Postgres..."; sleep 2; done
+          until pg_isready -h localhost -p 5432 -U ${{ secrets.POSTGRES_USER }}; do echo "Waiting for Postgres..."; sleep 2; done
           until redis-cli -h localhost ping | grep PONG; do echo "Waiting for Redis..."; sleep 2; done
           until nc -z localhost 5672; do echo "Waiting for RabbitMQ..."; sleep 2; done
 
       - name: Run migrations
         run: |
           docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=db \
-            -e REDIS_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
+            --network host \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e DATABASE_HOST=localhost \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
             backend-test \
             python manage.py migrate
 
       - name: Run Django tests
         run: |
           docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=db \
-            -e REDIS_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
+            --network host \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e DATABASE_HOST=localhost \
             backend-test \
-            python manage.py migrate
+            python manage.py test
 
       - name: Run Celery test task
         run: |
           docker run --rm \
-            -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=pass01 \
-            -e POSTGRES_DB=social_media \
-            -e DATABASE_HOST=db \
-            -e REDIS_URL=redis://redis:6379/0 \
-            -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
+            --network host \
+            -e POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+            -e POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+            -e POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+            -e DATABASE_HOST=localhost \
+            -e CELERY_BROKER_URL=amqp://guest:guest@localhost:5672// \
+            -e CELERY_RESULT_BACKEND=redis://localhost:6379/2 \
             backend-test \
-            python manage.py migrate
+            bash -c "python manage.py migrate && celery -A social_media_feed worker --loglevel=INFO --detach && python manage.py test_celery_task"
