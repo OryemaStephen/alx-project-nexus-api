@@ -15,10 +15,8 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: pass01   # dummy password for CI
+          POSTGRES_PASSWORD: pass01
           POSTGRES_DB: social_media
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U nexus -d social_media"
           --health-interval 10s
@@ -27,14 +25,19 @@ jobs:
 
       redis:
         image: redis:7
-        ports:
-          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping | grep PONG"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       rabbitmq:
         image: rabbitmq:3-management
-        ports:
-          - 5672:5672
-          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmqctl status"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout repo
@@ -43,7 +46,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
@@ -53,27 +56,12 @@ jobs:
       - name: Build Docker image
         run: docker build -t backend-test .
 
-      - name: Install redis-cli and curl
-        run: sudo apt-get update && sudo apt-get install -y redis-tools curl
-
-      - name: Download wait-for-it.sh
-        run: |
-          curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-          chmod +x wait-for-it.sh
-
-      - name: Wait for services
-        run: |
-          ./wait-for-it.sh db:5432 --timeout=120 --strict -- echo "Postgres is up"
-          ./wait-for-it.sh redis:6379 --timeout=120 --strict -- echo "Redis is up"
-          ./wait-for-it.sh rabbitmq:5672 --timeout=120 --strict -- echo "RabbitMQ is up"
-
-      - name: Run all tests in one container
-        env:
-          POSTGRES_PASSWORD: testpassword   # match service env
+      - name: Run migrations and tests
         run: |
           docker run --rm \
+            --network ${{ github.job }}_default \
             -e POSTGRES_USER=nexus \
-            -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
+            -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
             -e DATABASE_HOST=db \
             -e REDIS_URL=redis://redis:6379/0 \
@@ -81,11 +69,15 @@ jobs:
             -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
             backend-test \
             bash -c "\
-              echo 'Running migrations...' && \
-              python manage.py migrate && \
-              echo 'Running Django tests...' && \
-              python manage.py test && \
-              echo 'Running Celery task tests...' && \
+              echo 'Waiting for Postgres...' && \
+              until pg_isready -h db -U \$POSTGRES_USER; do sleep 2; done && \
+              echo 'Waiting for Redis...' && \
+              until redis-cli -h redis ping | grep PONG; do sleep 2; done && \
+              echo 'Waiting for RabbitMQ...' && \
+              until rabbitmqctl -q status; do sleep 2; done && \
+              echo 'Running migrations...' && python manage.py migrate && \
+              echo 'Running Django tests...' && python manage.py test && \
+              echo 'Running Celery tests...' && \
               celery -A social_media_feed worker --loglevel=INFO --detach && \
               python manage.py test_celery_task \
             "
