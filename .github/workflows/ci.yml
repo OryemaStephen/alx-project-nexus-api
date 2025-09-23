@@ -63,9 +63,9 @@ jobs:
 
       - name: Wait for services
         run: |
-          ./wait-for-it.sh db:5432 --timeout=30 --strict -- echo "Postgres is up"
-          ./wait-for-it.sh redis:6379 --timeout=30 --strict -- echo "Redis is up"
-          ./wait-for-it.sh rabbitmq:5672 --timeout=30 --strict -- echo "RabbitMQ is up"
+          ./wait-for-it.sh db:5432 --timeout=120 --strict -- echo "Postgres is up"
+          ./wait-for-it.sh redis:6379 --timeout=120 --strict -- echo "Redis is up"
+          ./wait-for-it.sh rabbitmq:5672 --timeout=120 --strict -- echo "RabbitMQ is up"
 
       - name: Run all tests in one container
         env:
