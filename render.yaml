@@ -11,7 +11,7 @@ services:
       - key: DJANGO_DEBUG
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
-        value: "social-media-feed.onrender.com"
+        value: "social-media-backend.onrender.com"
       - key: POSTGRES_DB
         fromDatabase: db_name
       - key: POSTGRES_USER
