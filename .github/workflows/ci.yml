@@ -10,35 +10,6 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    services:   
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: nexus
-          POSTGRES_PASSWORD: pass01
-          POSTGRES_DB: social_media
-        options: >-
-          --health-cmd "pg_isready -U nexus -d social_media"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping | grep PONG"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      rabbitmq:
-        image: rabbitmq:3-management
-        options: >-
-          --health-cmd "rabbitmqctl status"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -54,16 +25,33 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build Docker image
-        run: docker compose build
+        run: docker build -t backend-test .
+
+      - name: Create Docker network
+        run: docker network create backend-test-network || true
+
+      - name: Start services
+        run: |
+          docker run -d --name db --network backend-test-network \
+            -e POSTGRES_USER=nexus \
+            -e POSTGRES_PASSWORD=pass01 \
+            -e POSTGRES_DB=social_media \
+            postgres:15
+
+          docker run -d --name redis --network backend-test-network redis:7
+
+          docker run -d --name rabbitmq --network backend-test-network \
+            -p 5672:5672 -p 15672:15672 \
+            rabbitmq:3-management
 
       - name: Download wait-for-it.sh
         run: |
           curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
           chmod +x wait-for-it.sh
 
-      - name: Run migrations, tests, and Celery tasks
+      - name: Run migrations and tests
         run: |
-          docker compose run --rm \
+          docker run --rm --network backend-test-network \
             -e POSTGRES_USER=nexus \
             -e POSTGRES_PASSWORD=pass01 \
             -e POSTGRES_DB=social_media \
@@ -71,7 +59,8 @@ jobs:
             -e REDIS_URL=redis://redis:6379/0 \
             -e CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672// \
             -e CELERY_RESULT_BACKEND=redis://redis:6379/2 \
-            web bash -c "\
+            backend-test \
+            bash -c "\
               echo 'Waiting for Postgres...' && ./wait-for-it.sh db:5432 --timeout=120 --strict && \
               echo 'Waiting for Redis...' && ./wait-for-it.sh redis:6379 --timeout=120 --strict && \
               echo 'Waiting for RabbitMQ...' && ./wait-for-it.sh rabbitmq:5672 --timeout=120 --strict && \
