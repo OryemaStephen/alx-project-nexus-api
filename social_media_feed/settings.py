@@ -101,7 +101,13 @@ WSGI_APPLICATION = 'social_media_feed.wsgi.application'
 
 USE_DOCKER = os.getenv('USE_DOCKER', 'False') == 'True'
 
-DATABASES = {
+if os.getenv("DATABASE_URL"):
+    # Use DATABASE_URL if available (Render/Heroku/etc.)
+    DATABASES = {
+        "default": dj_database_url.config(default=os.getenv("DATABASE_URL"))
+    }
+else:
+    DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("POSTGRES_DB", "social_media"),
@@ -112,7 +118,6 @@ DATABASES = {
     }
 }
 
-DATABASES["default"] = dj_database_url.config(default=os.getenv("DATABASE_URL"))
 
 AUTH_USER_MODEL = 'users.User'
 
