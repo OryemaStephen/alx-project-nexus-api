@@ -32,6 +32,13 @@ COPY . .
 COPY wait-for-it.sh /wait-for-it.sh
 RUN chmod +x /wait-for-it.sh
 
+# ✅ Create non-root user (celery_nexus)
+RUN addgroup --system celery && adduser --system --ingroup celery celery_nexus
+RUN chown -R celery_nexus:celery /app
+
+# Switch to non-root user
+USER celery_nexus
+
 # Expose Django port
 EXPOSE 8000
 

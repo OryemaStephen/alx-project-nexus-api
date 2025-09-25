@@ -4,22 +4,24 @@ services:
     command: >
       sh -c "./wait-for-it.sh db:5432 --
       python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000"
+      gunicorn social_media_feed.wsgi:application --bind 0.0.0.0:8000 --workers 4"
     volumes:
       - .:/app
     ports:
       - "8000:8000"
     env_file:
-      - .env     # 👈 use env file
+      - .env     
     depends_on:
       - db
       - redis
       - rabbitmq
+    user: "${UID:-1000}:${GID:-1000}"
+
 
   db:
     image: postgres:15
     env_file:
-      - .env     # 👈 use env file
+      - .env     
     ports:
       - "5432:5432"
     volumes:
@@ -45,12 +47,27 @@ services:
   celery:
     build: .
     command: >
-      sh -c "./wait-for-it.sh rabbitmq:5672 --
+      sh -c "./wait-for-it.sh db:5432 --
+      ./wait-for-it.sh rabbitmq:5672 --
       celery -A social_media_feed worker --loglevel=INFO"
     volumes:
       - .:/app
     env_file:
-      - .env     # 👈 use env file
+      - .env     
+    depends_on:
+      - rabbitmq
+      - redis
+      - db
+  celery-beat:
+    build: .
+    command: >
+      sh -c "./wait-for-it.sh db:5432 --
+      ./wait-for-it.sh rabbitmq:5672 --
+      celery -A social_media_feed beat --loglevel=INFO"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
     depends_on:
       - rabbitmq
       - redis

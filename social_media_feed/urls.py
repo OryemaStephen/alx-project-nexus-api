@@ -1,50 +1,35 @@
-"""
-URL configuration for Social_media_feed project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 from graphene_django.views import GraphQLView
 from django.views.decorators.csrf import csrf_exempt
 from .schema import schema
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from users.views import LoginView, CustomLoginView
 from django.http import JsonResponse
+from graphene_file_upload.django import FileUploadGraphQLView
 
 def health_check(request):
     return JsonResponse({"status": "ok"})
 
+
 def home(request):
     return JsonResponse({"message": "Welcome to Nexus API"})
 
+
 urlpatterns = [
-    path("healthz", health_check), # ON RENDER
-    path("", home, name="home"),   #  root endpoint
-    path('admin/', admin.site.urls),
-    path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True, schema=schema))),
-    # Auth routes
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-    # App routes
-    path("api/", include("users.urls")), 
-    path("users/", include("users.urls")), 
-
+    path("healthz", health_check),  # health check endpoint
+    path("", home, name="home"),    # root endpoint
+    path("admin/", admin.site.urls),
+    
+    #  # --- GraphQL (with file upload support) ---
+    path("graphql/", csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True, schema=schema))),
+    
+    # --- Auth routes (REST/JWT) ---
     path("api/login/", LoginView.as_view(), name="login"),
     path("api/token/", CustomLoginView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    # --- App routes ---
+    path("api/users/", include("users.urls")), 
+    
 ]
