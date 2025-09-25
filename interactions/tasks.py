@@ -5,6 +5,11 @@ from django.utils import timezone
 from .models import Comment, Share
 
 
+# ------------test task---------------------
+@shared_task
+def add(x, y):
+    return x + y
+
 # ---------------------- Notifications ----------------------
 @shared_task
 def send_like_notification(liker_username, author_email, post_excerpt):
