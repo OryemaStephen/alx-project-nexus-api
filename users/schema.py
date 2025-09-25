@@ -1,13 +1,15 @@
 import graphene
 from graphene_django import DjangoObjectType
 from graphql import GraphQLError
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 import graphql_jwt
 from .models import Follow
+from .tasks import send_login_notification  # Celery task
 
 UserModel = get_user_model()
 
 
+# ---------------------- GraphQL Types ----------------------
 class UserType(DjangoObjectType):
     class Meta:
         model = UserModel
@@ -20,7 +22,7 @@ class FollowType(DjangoObjectType):
         fields = ("id", "follower", "following", "created_at")
 
 
-# Queries
+# ---------------------- Queries ----------------------
 class Query(graphene.ObjectType):
     users = graphene.List(UserType)
     me = graphene.Field(UserType)
@@ -43,7 +45,7 @@ class Query(graphene.ObjectType):
         return [f.following for f in Follow.objects.filter(follower_id=user_id)]
 
 
-# Mutations
+# ---------------------- Mutations ----------------------
 class CreateUser(graphene.Mutation):
     user = graphene.Field(UserType)
 
@@ -97,10 +99,47 @@ class UnfollowUser(graphene.Mutation):
             raise GraphQLError("Not following this user")
 
 
+# ---------------------- Custom Login Mutation (Async Notification) ----------------------
+class CustomLogin(graphene.Mutation):
+    user = graphene.Field(UserType)
+    token = graphene.String()
+    refresh_token = graphene.String()
+    message = graphene.String()
+
+    class Arguments:
+        username = graphene.String(required=True)
+        password = graphene.String(required=True)
+
+    def mutate(self, info, username, password):
+        user = authenticate(username=username, password=password)
+        if not user:
+            raise GraphQLError("Invalid credentials")
+
+        # Generate JWT tokens
+        token = graphql_jwt.shortcuts.get_token(user)
+        refresh = graphql_jwt.shortcuts.create_refresh_token(user)
+
+        # Trigger async task (Celery) for login notification
+        if user.email:
+            send_login_notification.delay(
+                username=user.username,
+                email=user.email,
+            )
+
+        return CustomLogin(
+            user=user,
+            token=token,
+            refresh_token=refresh,
+            message=f"Welcome back, {user.username}!"
+        )
+
+
+# ---------------------- Root Mutation ----------------------
 class Mutation(graphene.ObjectType):
     create_user = CreateUser.Field()
     follow_user = FollowUser.Field()
     unfollow_user = UnfollowUser.Field()
+    login = CustomLogin.Field()  # Use the async login mutation
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()
     refresh_token = graphql_jwt.Refresh.Field()

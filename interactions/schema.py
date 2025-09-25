@@ -8,7 +8,7 @@ from posts.models import Post
 User = get_user_model()
 
 
-# GraphQL Types
+# ---------------------- GraphQL Types ----------------------
 class LikeType(DjangoObjectType):
     class Meta:
         model = Like
@@ -27,27 +27,23 @@ class ShareType(DjangoObjectType):
         fields = ("id", "user", "post", "message", "created_at")
 
 
-# Queries
+# ---------------------- Queries ----------------------
 class Query(graphene.ObjectType):
     likes = graphene.List(LikeType, post_id=graphene.Int(required=False))
     comments = graphene.List(CommentType, post_id=graphene.Int(required=True))
     shares = graphene.List(ShareType, post_id=graphene.Int(required=False))
 
     def resolve_likes(root, info, post_id=None):
-        if post_id:
-            return Like.objects.filter(post_id=post_id)
-        return Like.objects.all()
+        return Like.objects.filter(post_id=post_id) if post_id else Like.objects.all()
 
     def resolve_comments(root, info, post_id):
         return Comment.objects.filter(post_id=post_id).order_by("-created_at")
 
     def resolve_shares(root, info, post_id=None):
-        if post_id:
-            return Share.objects.filter(post_id=post_id)
-        return Share.objects.all()
+        return Share.objects.filter(post_id=post_id) if post_id else Share.objects.all()
 
 
-# Mutations
+# ---------------------- Mutations ----------------------
 class LikePost(graphene.Mutation):
     like = graphene.Field(LikeType)
 
@@ -67,6 +63,16 @@ class LikePost(graphene.Mutation):
         like, created = Like.objects.get_or_create(user=user, post=post)
         if not created:
             raise GraphQLError("You already liked this post")
+
+        # -------------------- Trigger Celery Task --------------------
+        if created and post.author.email:
+            from .tasks import send_like_notification
+            post_excerpt = (post.content[:50] + "...") if len(post.content) > 50 else post.content
+            send_like_notification.delay(
+                liker_username=user.username,
+                author_email=post.author.email,
+                post_excerpt=post_excerpt,
+            )
 
         return LikePost(like=like)
 
@@ -108,6 +114,19 @@ class AddComment(graphene.Mutation):
             raise GraphQLError("Post not found")
 
         comment = Comment.objects.create(user=user, post=post, content=content)
+
+        # 🔥 Async task for comment
+        if post.author.email:
+            from .tasks import send_comment_notification
+            post_excerpt = (post.content[:50] + "...") if len(post.content) > 50 else post.content
+            comment_excerpt = (content[:100] + "...") if len(content) > 100 else content
+            send_comment_notification.delay(
+                commenter_username=user.username,
+                author_email=post.author.email,
+                post_excerpt=post_excerpt,
+                comment_content=comment_excerpt,
+            )
+
         return AddComment(comment=comment)
 
 
@@ -148,9 +167,21 @@ class SharePost(graphene.Mutation):
             raise GraphQLError("Post not found")
 
         share = Share.objects.create(user=user, post=post, message=message)
+
+        # 🔥 Async task for share
+        if post.author.email:
+            from .tasks import send_share_notification
+            post_excerpt = (post.content[:50] + "...") if len(post.content) > 50 else post.content
+            send_share_notification.delay(
+                sharer_username=user.username,
+                author_email=post.author.email,
+                post_excerpt=post_excerpt,
+            )
+
         return SharePost(share=share)
 
 
+# ---------------------- Root Mutation ----------------------
 class Mutation(graphene.ObjectType):
     like_post = LikePost.Field()
     unlike_post = UnlikePost.Field()
